@@ -1,0 +1,29 @@
+services:
+  # 1. Web Server
+  # Serves the static repo files (APKs + index)
+  web:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8889:80" # Access at http://server-ip:8889/fdroid/repo
+    volumes:
+      - ./data:/usr/share/nginx/html/fdroid/repo:ro
+
+  # 2. Worker / Updater
+  # Fetches updates from GitHub and signs the repo
+  worker:
+    build: .
+    restart: unless-stopped
+    entrypoint: /bin/bash /scripts/update_repo.sh
+    environment:
+      - FDROID_REPO_NAME="${FDROID_REPO_NAME:-My F-Droid Repo}"
+      - FDROID_REPO_PASS=${FDROID_REPO_PASS}
+      - UPDATE_INTERVAL=${UPDATE_INTERVAL:-300} # Check for updates every 300 seconds (5m)
+    volumes:
+      - ./data:/repo/repo # Standard location for APKs in fdroidserver
+      - ./config.yml:/repo/config.yml # Repo configuration
+      - ./repos.conf:/repo/repos.conf # Repository list
+      - ./keystore.p12:/repo/keystore.p12 # Repo signing key
+      - ./update_repo.sh:/scripts/update_repo.sh
+    depends_on:
+      - web
